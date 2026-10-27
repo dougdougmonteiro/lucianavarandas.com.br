@@ -70,15 +70,21 @@
     mm.add({
     motion: '(prefers-reduced-motion: no-preference)',
     desk: '(min-width: 901px)',
+    sm: '(max-width: 600px)',
+    land: '(orientation: landscape)',
     fine: '(pointer: fine)'
   }, function (ctx) {
     var c = ctx.conditions;
     if (!c.motion) return;
     var cleanups = [];
 
-    gsap.utils.toArray('.fc-in').forEach(function (el, i) {
-      gsap.to(el, { y: '+=7', duration: 2.6 + i * 0.5, ease: 'sine.inOut', yoyo: true, repeat: -1, delay: i * 0.4 });
+    /* cartões do topo flutuam só enquanto o topo está na tela */
+    var floats = gsap.utils.toArray('.fc-in').map(function (el, i) {
+      return gsap.to(el, { y: '+=7', duration: 2.6 + i * 0.5, ease: 'sine.inOut', yoyo: true, repeat: -1, delay: i * 0.4 });
     });
+    ST.create({ trigger: '.hero', start: 'top bottom', end: 'bottom top', onToggle: function (self) {
+      floats.forEach(function (t) { if (self.isActive) t.resume(); else t.pause(); });
+    } });
 
     /* retrato: profundidade ao rolar e ao mover o mouse */
     gsap.to('.art-photo', { yPercent: -5, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
@@ -109,7 +115,7 @@
     function seen(el) { return el.getBoundingClientRect().top < window.innerHeight * 0.92; }
     gsap.utils.toArray('[data-reveal]').forEach(function (el) {
       if (seen(el)) return;
-      gsap.from(el, { y: 36, autoAlpha: 0, duration: 0.9, ease: 'power3.out', scrollTrigger: { trigger: el, start: 'top 88%', once: true } });
+      gsap.from(el, { y: 36, opacity: 0, duration: 0.9, ease: 'power3.out', scrollTrigger: { trigger: el, start: 'top 88%', once: true } });
     });
 
     /* para quem: a linha do topo se desenha */
@@ -117,13 +123,13 @@
 
     /* serviços: a agenda se confirma e a mensagem aparece */
     var rows = gsap.utils.toArray('.agenda .pill');
-    if (!seen(document.querySelector('.agenda'))) gsap.from(rows, { scale: 0.6, autoAlpha: 0, duration: 0.5, ease: 'back.out(2)', stagger: 0.18, scrollTrigger: { trigger: '.agenda', start: 'top 80%', once: true } });
-    if (!seen(document.querySelector('.c-wa'))) gsap.from('.bubble', { scale: 0.85, autoAlpha: 0, duration: 0.7, ease: 'back.out(1.6)', scrollTrigger: { trigger: '.c-wa', start: 'top 70%', once: true } });
+    if (!seen(document.querySelector('.agenda'))) gsap.from(rows, { scale: 0.6, opacity: 0, duration: 0.5, ease: 'back.out(2)', stagger: 0.18, scrollTrigger: { trigger: '.agenda', start: 'top 80%', once: true } });
+    if (!seen(document.querySelector('.c-wa'))) gsap.from('.bubble', { scale: 0.85, opacity: 0, duration: 0.7, ease: 'back.out(1.6)', scrollTrigger: { trigger: '.c-wa', start: 'top 70%', once: true } });
 
     /* diferença: as marcas de cada lado entram em sequência */
     gsap.utils.toArray('.vs').forEach(function (box) {
       if (seen(box)) return;
-      gsap.from(box.querySelectorAll('li'), { x: -14, autoAlpha: 0, duration: 0.55, ease: 'power3.out', stagger: 0.1, scrollTrigger: { trigger: box, start: 'top 78%', once: true } });
+      gsap.from(box.querySelectorAll('li'), { x: -14, opacity: 0, duration: 0.55, ease: 'power3.out', stagger: 0.1, scrollTrigger: { trigger: box, start: 'top 78%', once: true } });
     });
 
     /* como funciona: a linha de cada etapa se desenha em ordem */
@@ -131,11 +137,11 @@
     var stl = gsap.timeline({ scrollTrigger: { trigger: '.steps', start: 'top 82%', once: true } });
     steps.forEach(function (s, i) {
       stl.fromTo(s, { '--draw': 0 }, { '--draw': 1, duration: 0.6, ease: 'power2.inOut' }, i * 0.18)
-         .from(s.children, { y: 18, autoAlpha: 0, duration: 0.6, ease: 'power3.out', stagger: 0.06 }, i * 0.18 + 0.15);
+         .from(s.children, { y: 18, opacity: 0, duration: 0.6, ease: 'power3.out', stagger: 0.06 }, i * 0.18 + 0.15);
     });
 
     /* planos sobem em degraus, o do meio por último */
-    if (!seen(document.querySelector('.plans'))) gsap.from('[data-plan]', { y: 70, autoAlpha: 0, duration: 1, ease: 'power3.out', stagger: { each: 0.12, from: 'edges' }, scrollTrigger: { trigger: '.plans', start: 'top 85%', once: true } });
+    if (!seen(document.querySelector('.plans'))) gsap.from('[data-plan]', { y: 70, opacity: 0, duration: 1, ease: 'power3.out', stagger: { each: 0.12, from: 'edges' }, scrollTrigger: { trigger: '.plans', start: 'top 85%', once: true } });
 
     /* sobre: a foto se abre de baixo para cima */
     gsap.fromTo('.about-photo', { clipPath: 'inset(18% 0% 0% 0% round 24px)' }, { clipPath: 'inset(0% 0% 0% 0% round 24px)', ease: 'none', scrollTrigger: { trigger: '.about-photo', start: 'top 92%', end: 'top 45%', scrub: true } });
@@ -147,6 +153,19 @@
 
     return function () { cleanups.forEach(function (f) { if (f) f(); }); };
   });
+
+    /* abrir ou fechar uma dúvida muda a altura da página */
+    document.querySelectorAll('.qa details').forEach(function (d) {
+      d.addEventListener('toggle', function () { ST.refresh(); });
+    });
+
+    /* quem chega por um link com # (ex.: /#planos) cai no lugar certo depois que a cena fixa ocupa o espaço dela */
+    if (location.hash.length > 1) {
+      var target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+      var go = function () { if (target) target.scrollIntoView({ behavior: 'instant', block: 'start' }); };
+      ST.refresh(); go();
+      window.setTimeout(go, 450);
+    }
   }
 
   function scene(desk) {
@@ -159,7 +178,8 @@
     function setCount(k) { num.textContent = k; lab.textContent = (k === 1 ? 'pendência' : 'pendências') + ' na sua mesa'; }
 
     sec.classList.add('is-pinned');
-    var pin = sec.querySelector('.scene-in').scrollHeight <= window.innerHeight + 2;
+    var sceneIn = sec.querySelector('.scene-in');
+    var pin = sceneIn.scrollHeight <= sceneIn.clientHeight + 2;
     if (!pin) sec.classList.remove('is-pinned');
 
     var deskPts = [[0.06, 0, -8], [0.94, 0.06, 6], [0.28, 0.27, 4], [1, 0.44, -6], [0, 0.6, 7], [0.62, 0.78, -4], [0.36, 1, 3]];
@@ -195,8 +215,8 @@
       resolveAt.push(at + 0.15);
     });
     var end = t0 + (n - 1) * step + 0.2;
-    tl.fromTo('.scene-h .hb', { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 0.07 }, end);
-    tl.fromTo('.scene-foot', { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0, duration: 0.07 }, end + 0.04);
+    tl.fromTo('.scene-h .hb', { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.07 }, end);
+    tl.fromTo('.scene-foot', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.07 }, end + 0.04);
     tl.to({}, { duration: pin ? 0.14 : 0.02 });
     setCount(n);
     return function () { sec.classList.remove('is-pinned'); setCount(0); };
